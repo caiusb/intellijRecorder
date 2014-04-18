@@ -84,7 +84,8 @@ public class COPEComponent implements ProjectComponent {
         editorFactoryListener = new EditorFactoryListener(this, recorder.getClientRecorder());
         EditorFactory.getInstance().addEditorFactoryListener(editorFactoryListener);
 
-        VirtualFileManager.getInstance().addVirtualFileListener(new FileListener(this, recorder));
+        fileListener = new FileListener(this, recorder);
+        VirtualFileManager.getInstance().addVirtualFileListener(fileListener);
         runManager = (RunManagerEx) RunManagerEx.getInstance(project);
 
         runListener = new COPERunManagerListener();
