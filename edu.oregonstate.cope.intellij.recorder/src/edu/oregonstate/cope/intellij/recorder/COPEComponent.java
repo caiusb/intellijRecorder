@@ -58,6 +58,8 @@ public class COPEComponent implements ProjectComponent {
 
     private FileListener fileListener;
     private EditorFactoryListener editorFactoryListener;
+    private COPERunManagerListener runListener;
+
 
     public COPEComponent(Project project) {
         this.project = project;
@@ -85,7 +87,8 @@ public class COPEComponent implements ProjectComponent {
         VirtualFileManager.getInstance().addVirtualFileListener(new FileListener(this, recorder));
         runManager = (RunManagerEx) RunManagerEx.getInstance(project);
 
-        runManager.addRunManagerListener(new COPERunManagerListener());
+        runListener = new COPERunManagerListener();
+        runManager.addRunManagerListener(runListener);
 
         beforeRunTaskProvider = getBeforeRunTaskProvider();
         if (beforeRunTaskProvider == null) {
@@ -149,6 +152,7 @@ public class COPEComponent implements ProjectComponent {
     public void projectClosed() {
         VirtualFileManager.getInstance().removeVirtualFileListener(fileListener);
         EditorFactory.getInstance().removeEditorFactoryListener(editorFactoryListener);
+        runManager.removeRunManagerListener(runListener);
     }
 
     @NotNull
