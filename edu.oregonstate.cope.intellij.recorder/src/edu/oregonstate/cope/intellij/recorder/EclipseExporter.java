@@ -15,6 +15,7 @@ import com.intellij.openapi.util.WriteExternalException;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.io.ZipUtil;
+import edu.oregonstate.cope.clientRecorder.ProjectManager;
 import edu.oregonstate.cope.clientRecorder.RecorderFacade;
 import org.jdom.Document;
 import org.jdom.Element;
@@ -50,11 +51,13 @@ public class EclipseExporter {
     private Project project;
     private File localStorage;
     private RecorderFacade recorder;
+    private ProjectManager projectManager;
 
     public EclipseExporter(Project project, File localStorage, RecorderFacade recorder) {
         this.project = project;
         this.localStorage = localStorage;
         this.recorder = recorder;
+        projectManager = new ProjectManager(localStorage.getAbsolutePath(), recorder.getLogger());
     }
 
     public void export() {
@@ -91,6 +94,14 @@ public class EclipseExporter {
         }
 
         project.save();
+    }
+
+    private void knowModule(Module module) {
+        projectManager.knowProject(module.getName());
+    }
+
+    private boolean isModuleKnown(Module module) {
+        return projectManager.isProjectKnown(module.getName());
     }
 
     private void addModuleToZipFile(Module module, String storageRoot, File zipFile) {
