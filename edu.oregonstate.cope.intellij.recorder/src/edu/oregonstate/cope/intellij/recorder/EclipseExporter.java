@@ -3,6 +3,9 @@ package edu.oregonstate.cope.intellij.recorder;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.options.ConfigurationException;
+import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.progress.ProgressManager;
+import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.roots.ModuleRootModel;
@@ -16,6 +19,7 @@ import edu.oregonstate.cope.clientRecorder.RecorderFacade;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.output.EclipseJDOMUtil;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.idea.eclipse.ConversionException;
 import org.jetbrains.idea.eclipse.EclipseXml;
 import org.jetbrains.idea.eclipse.IdeaXml;
@@ -27,6 +31,8 @@ import org.jetbrains.jps.eclipse.model.JpsEclipseClasspathSerializer;
 
 import java.io.*;
 import java.nio.file.Paths;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.zip.ZipOutputStream;
 
 /**
@@ -53,39 +59,24 @@ public class EclipseExporter {
 
     public void export() {
         Module[] modules = ModuleManager.getInstance(project).getModules();
-        for (Module module : modules) {
+        for (final Module module : modules) {
             boolean wasEclipseFriendly = true;
             if (!isModuleEclipseFriendly(module)) {
                 makeModuleEclipseFriendly(module);
                 wasEclipseFriendly = false;
             }
-            String storageRoot = getStorageRoot(module);
-            File zipFile = createZipFile(module.getName(), localStorage);
-            recorder.getClientRecorder().recordSnapshot(zipFile.getAbsolutePath());
-            try {
-                ZipOutputStream outputStream = new ZipOutputStream(new FileOutputStream(zipFile));
-                ZipUtil.addDirToZipRecursively(outputStream, null, new File(storageRoot), module.getName(), new FileFilter() {
-
-                    /**
-                     * We do not accept the local storage files. It is pointless to snapshot
-                     * the things we send to the server anyway.
-                     *
-                     * Also, this causes a deadlock, because it tries to add the archive to itself
-                     * while it's creating it...
-                     */
-                    @Override
-                    public boolean accept(File pathname) {
-                        if (pathname.getAbsolutePath().contains(localStorage.getAbsolutePath()))
-                            return false;
-                        else
-                            return true;
-                    }
-                }, null);
-                outputStream.close();
-            } catch (FileNotFoundException e) {
-            } catch (IOException e) {
-                System.out.println("MASSIVE FAILURE ADDING CONTENTS TO THE ZIP FILE");
-            }
+            final String storageRoot = getStorageRoot(module);
+            final File zipFile = createZipFile(module.getName(), localStorage);
+            Task.Backgroundable task = new Task.Backgroundable(project, "Taking snapshot of module: " + module.getName()) {
+                @Override
+                public void run(@NotNull ProgressIndicator progressIndicator) {
+                    progressIndicator.setFraction(0);
+                    recorder.getClientRecorder().recordSnapshot(zipFile.getAbsolutePath());
+                    addModuleToZipFile(module, storageRoot, zipFile);
+                    progressIndicator.setFraction(1);
+                }
+            };
+            ProgressManager.getInstance().run(task);
 
             if (!wasEclipseFriendly) {
                 getClassPathFile(storageRoot).delete();
@@ -100,6 +91,33 @@ public class EclipseExporter {
         }
 
         project.save();
+    }
+
+    private void addModuleToZipFile(Module module, String storageRoot, File zipFile) {
+        try {
+            ZipOutputStream outputStream = new ZipOutputStream(new FileOutputStream(zipFile));
+            ZipUtil.addDirToZipRecursively(outputStream, null, new File(storageRoot), module.getName(), new FileFilter() {
+
+                /**
+                 * We do not accept the local storage files. It is pointless to snapshot
+                 * the things we send to the server anyway.
+                 *
+                 * Also, this causes a deadlock, because it tries to add the archive to itself
+                 * while it's creating it...
+                 */
+                @Override
+                public boolean accept(File pathname) {
+                    if (pathname.getAbsolutePath().contains(localStorage.getAbsolutePath()))
+                        return false;
+                    else
+                        return true;
+                }
+            }, null);
+            outputStream.close();
+        } catch (FileNotFoundException e) {
+        } catch (IOException e) {
+            System.out.println("MASSIVE FAILURE ADDING CONTENTS TO THE ZIP FILE");
+        }
     }
 
     private boolean isModuleEclipseFriendly(Module module) {
