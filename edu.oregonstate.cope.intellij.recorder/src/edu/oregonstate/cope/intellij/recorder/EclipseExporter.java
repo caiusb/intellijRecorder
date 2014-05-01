@@ -38,7 +38,7 @@ import java.util.zip.ZipOutputStream;
 
 /**
  * This class has a lot of it's contents from
- * org.jetbrains.idea.eclipse.export.ExportEclipseProjectsAction.
+ * org.jetbrains.idea.eclipse.exportAll.ExportEclipseProjectsAction.
  * <p/>
  * Since the creators of IDEA do not provide a class who has only
  * the responsabilty of exporting a project, this is supposed to
@@ -60,7 +60,7 @@ public class EclipseExporter {
         projectManager = new ProjectManager(localStorage.getAbsolutePath(), recorder.getLogger());
     }
 
-    public void export() {
+    public void exportAll() {
         Module[] modules = ModuleManager.getInstance(project).getModules();
         for (final Module module : modules) {
             boolean wasEclipseFriendly = true;

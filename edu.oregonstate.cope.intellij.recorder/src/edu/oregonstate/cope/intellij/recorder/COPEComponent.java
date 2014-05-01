@@ -280,7 +280,7 @@ public class COPEComponent implements ProjectComponent {
     }
 
     private void takeSnapshotOfProject(Project project) {
-        new EclipseExporter(project, storageManager.getLocalStorage(), recorder).export();
+        new EclipseExporter(project, storageManager.getLocalStorage(), recorder).exportAll();
     }
 
     public void takeSnapshotOfProject(){
